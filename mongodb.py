@@ -3,6 +3,7 @@
 #
 
 import collectd
+import ssl
 from pymongo import MongoClient
 from pymongo.read_preferences import ReadPreference
 from distutils.version import LooseVersion as V
@@ -17,6 +18,7 @@ class MongoDB(object):
         self.mongo_db = ["admin", ]
         self.mongo_user = None
         self.mongo_password = None
+        self.mongo_useSSL = False
 
         self.lockTotalTime = None
         self.lockTime = None
@@ -37,7 +39,10 @@ class MongoDB(object):
         v.dispatch()
 
     def get_db_and_collection_stats(self):
-        con = MongoClient(host=self.mongo_host, port=self.mongo_port, read_preference=ReadPreference.SECONDARY)
+        if self.mongo_useSSL:
+            con = MongoClient(host=self.mongo_host, port=self.mongo_port, read_preference=ReadPreference.SECONDARY, ssl=True, ssl_cert_reqs=ssl.CERT_NONE)
+        else:
+            con = MongoClient(host=self.mongo_host, port=self.mongo_port, read_preference=ReadPreference.SECONDARY)
         db = con[self.mongo_db[0]]
         if self.mongo_user and self.mongo_password:
             db.authenticate(self.mongo_user, self.mongo_password)
@@ -138,6 +143,8 @@ class MongoDB(object):
                 self.mongo_password = node.values[0]
             elif node.key == 'Database':
                 self.mongo_db = node.values
+            elif node.key == 'UseSSL':
+                self.mongo_useSSL = node.values[0] == "True"
             else:
                 collectd.warning("mongodb plugin: Unkown configuration key %s" % node.key)
 
